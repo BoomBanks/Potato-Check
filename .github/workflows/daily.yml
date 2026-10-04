@@ -1,0 +1,35 @@
+name: Daily MTG Price Spike Check
+
+on:
+  schedule:
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-spikes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Spikes berechnen
+        run: python scripts/fetch_spikes.py
+
+      - name: Ergebnisse committen & pushen
+        run: |
+          git config user.name "mtg-spike-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/latest.json data/previous.json site/data.json
+          git diff --quiet --cached || git commit -m "Tägliches Preis-Update: $(date -u +'%Y-%m-%d')"
+          git push
