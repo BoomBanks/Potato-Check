@@ -30,6 +30,7 @@ jobs:
         run: |
           git config user.name "mtg-spike-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/latest.json data/previous.json site/data.json
+          git add data/latest.json site/data.json
+          [ -f data/previous.json ] && git add data/previous.json || true
           git diff --quiet --cached || git commit -m "Tägliches Preis-Update: $(date -u +'%Y-%m-%d')"
           git push
