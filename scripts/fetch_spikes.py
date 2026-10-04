@@ -40,10 +40,22 @@ HEADERS = {"User-Agent": "mtg-spike-tool/1.0", "Accept": "*/*"}
 def get_bulk_download_url():
     resp = requests.get(BULK_INFO_URL, headers=HEADERS, timeout=30)
     resp.raise_for_status()
-    for entry in resp.json()["data"]:
-        if entry["type"] == "default_cards":
-            return entry["download_uri"]
-    raise RuntimeError("Konnte 'default_cards' Bulk-Datei nicht finden.")
+    body = resp.json()
+    entries = body.get("data", [])
+    for entry in entries:
+        if entry.get("type") == "default_cards":
+            uri = entry.get("download_uri") or entry.get("download_url") or entry.get("uri")
+            if uri:
+                return uri
+            raise RuntimeError(
+                f"'default_cards'-Eintrag gefunden, aber keine Download-URL darin. "
+                f"Kompletter Eintrag zur Diagnose: {entry}"
+            )
+    raise RuntimeError(
+        f"Konnte 'default_cards' Bulk-Datei nicht finden. "
+        f"Verfuegbare Typen: {[e.get('type') for e in entries]}. "
+        f"Komplette Antwort zur Diagnose: {body}"
+    )
 
 
 def download_and_extract_prices(url):
