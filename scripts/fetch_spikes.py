@@ -27,21 +27,14 @@ LATEST_PATH = os.path.join(DATA_DIR, "latest.json")
 PREVIOUS_PATH = os.path.join(DATA_DIR, "previous.json")
 OUTPUT_PATH = os.path.join(SITE_DIR, "data.json")
 
-MIN_PRICE_AFTER_SPIKE = 3.0  # Karte muss NACH dem Spike mindestens diesen USD-Preis haben
-MIN_PCT_CHANGE = 20.0        # Mindest-Preisanstieg in Prozent, um als "Spike" zu zaehlen
+MIN_PRICE_AFTER_SPIKE = 3.0
+MIN_PCT_CHANGE = 20.0
 TOP_N = 50
-RARITIES = {"rare", "mythic"}  # Commons/Uncommons werden ignoriert (meist nur Preis-Rauschen).
-                                 # Zum Einschliessen einfach "uncommon"/"common" ergaenzen.
+RARITIES = {"rare", "mythic"}
 
 BULK_INFO_URL = "https://api.scryfall.com/bulk-data"
 HEADERS = {"User-Agent": "mtg-spike-tool/1.0", "Accept": "*/*"}
 
 
 def get_bulk_download_url():
-    resp = requests.get(BULK_INFO_URL, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    body = resp.json()
-    entries = body.get("data", [])
-    for entry in entries:
-        if entry.get("type") == "default_cards":
-            u
+    resp = requests.get(BULK_INFO_URL, headers=HEADERS,
