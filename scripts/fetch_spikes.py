@@ -63,6 +63,15 @@ def download_and_extract_prices(url):
     nonfoil, foil = {}, {}
     with requests.get(url, headers=HEADERS, stream=True, timeout=300) as resp:
         resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "?")
+        content_length = resp.headers.get("Content-Length", "?")
+        print(f"Download-Antwort: Status={resp.status_code}, Content-Type={content_type}, Content-Length={content_length}")
+        if "json" not in content_type.lower():
+            preview = resp.raw.read(500)
+            raise RuntimeError(
+                f"Unerwarteter Content-Type '{content_type}' statt JSON. "
+                f"Erste 500 Bytes der Antwort: {preview!r}"
+            )
         resp.raw.decode_content = True
         for card in ijson.items(resp.raw, "item"):
             if card.get("lang") != "en":
@@ -93,6 +102,13 @@ def download_and_extract_prices(url):
                     foil[card_id] = {**base_info, "price": float(usd_foil)}
                 except (TypeError, ValueError):
                     pass
+
+    if not nonfoil and not foil:
+        raise RuntimeError(
+            "0 Preise gefunden, obwohl der Download technisch erfolgreich war (Status 200, Content-Type JSON). "
+            "Moegliche Ursache: Datenformat der Scryfall-Datei weicht vom erwarteten Format ab, oder alle "
+            "Karten wurden durch die Filter (RARITIES, Sprache, 'paper') ausgeschlossen."
+        )
 
     return {"nonfoil": nonfoil, "foil": foil}
 
