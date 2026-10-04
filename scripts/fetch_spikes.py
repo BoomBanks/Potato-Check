@@ -4,20 +4,23 @@ Laedt die aktuellen MTG-Kartenpreise (USD, i.d.R. TCGplayer-basiert) von Scryfal
 vergleicht sie mit dem gestrigen Snapshot und schreibt die groessten Preis-Spikes
 nach site/data.json (fuer die Webseite). Non-Foil und Foil werden getrennt ausgewertet.
 
+Scryfall liefert die Bulk-Daten als gzip-komprimierte JSONL-Datei (eine Karte pro Zeile).
+
 Ablauf:
 1. data/latest.json (falls vorhanden) -> data/previous.json (Rotation)
-2. Scryfall "default_cards" Bulk-Datei herunterladen & streamen
+2. Scryfall "default_cards" Bulk-Datei herunterladen & streamen (gzip + JSONL)
 3. Neue Preise als data/latest.json speichern (getrennt nach nonfoil/foil)
 4. previous vs. latest vergleichen -> Top-Spikes je Finish -> site/data.json
 """
 
+import gzip
+import io
 import json
 import os
 import shutil
 import sys
 from datetime import datetime, timezone
 
-import ijson
 import requests
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -43,8 +46,9 @@ def get_bulk_download_url():
     entries = body.get("data", [])
     for entry in entries:
         if entry.get("type") == "default_cards":
-            uri = entry.get("download_uri") or entry.get("download_url") or entry.get("uri")
+            uri = entry.get("jsonl_download_uri") or entry.get("download_uri")
             if uri:
+                print(f"Gefundene Bulk-Datei-URL: {uri}")
                 return uri
             raise RuntimeError(
                 f"'default_cards'-Eintrag gefunden, aber keine Download-URL darin. "
@@ -52,70 +56,67 @@ def get_bulk_download_url():
             )
     raise RuntimeError(
         f"Konnte 'default_cards' Bulk-Datei nicht finden. "
-        f"Verfuegbare Typen: {[e.get('type') for e in entries]}. "
-        f"Komplette Antwort zur Diagnose: {body}"
+        f"Verfuegbare Typen: {[e.get('type') for e in entries]}."
     )
 
 
 def download_and_extract_prices(url):
+    """Streamt die gzip-komprimierte JSONL-Datei (eine Karte pro Zeile)."""
     nonfoil, foil = {}, {}
+    line_count = 0
     with requests.get(url, headers=HEADERS, stream=True, timeout=300) as resp:
         resp.raise_for_status()
-        content_type = resp.headers.get("Content-Type", "?")
         content_length = resp.headers.get("Content-Length", "?")
-        print(f"Download-Antwort: Status={resp.status_code}, Content-Type={content_type}, Content-Length={content_length}")
-        if "json" not in content_type.lower():
-            preview = resp.raw.read(500)
-            raise RuntimeError(
-                f"Unerwarteter Content-Type '{content_type}' statt JSON. "
-                f"Erste 500 Bytes der Antwort: {preview!r}"
-            )
-        try:
-            suspicious_small = int(content_length) < 10000
-        except (TypeError, ValueError):
-            suspicious_small = False
-        if suspicious_small:
-            raw_body = resp.content
-            raise RuntimeError(
-                f"Antwort ist verdaechtig klein ({content_length} Bytes) fuer die grosse "
-                f"default_cards-Datei. Kompletter Inhalt: {raw_body!r}"
-            )
-        resp.raw.decode_content = True
-        for card in ijson.items(resp.raw, "item"):
-            if card.get("lang") != "en":
-                continue
-            if "paper" not in (card.get("games") or []):
-                continue
-            if card.get("rarity") not in RARITIES:
-                continue
+        print(f"Download-Antwort: Status={resp.status_code}, Content-Length={content_length}")
 
-            prices = card.get("prices") or {}
-            card_id = card["id"]
-            base_info = {
-                "name": card.get("name", "?"),
-                "set": (card.get("set") or "").upper(),
-                "url": card.get("scryfall_uri", ""),
-            }
-
-            usd = prices.get("usd")
-            if usd:
+        with gzip.GzipFile(fileobj=resp.raw) as gz:
+            text_stream = io.TextIOWrapper(gz, encoding="utf-8")
+            for line in text_stream:
+                line = line.strip()
+                if not line:
+                    continue
+                line_count += 1
                 try:
-                    nonfoil[card_id] = {**base_info, "price": float(usd)}
-                except (TypeError, ValueError):
-                    pass
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-            usd_foil = prices.get("usd_foil")
-            if usd_foil:
-                try:
-                    foil[card_id] = {**base_info, "price": float(usd_foil)}
-                except (TypeError, ValueError):
-                    pass
+                if card.get("lang") != "en":
+                    continue
+                if "paper" not in (card.get("games") or []):
+                    continue
+                if card.get("rarity") not in RARITIES:
+                    continue
+
+                prices = card.get("prices") or {}
+                card_id = card["id"]
+                base_info = {
+                    "name": card.get("name", "?"),
+                    "set": (card.get("set") or "").upper(),
+                    "url": card.get("scryfall_uri", ""),
+                }
+
+                usd = prices.get("usd")
+                if usd:
+                    try:
+                        nonfoil[card_id] = {**base_info, "price": float(usd)}
+                    except (TypeError, ValueError):
+                        pass
+
+                usd_foil = prices.get("usd_foil")
+                if usd_foil:
+                    try:
+                        foil[card_id] = {**base_info, "price": float(usd_foil)}
+                    except (TypeError, ValueError):
+                        pass
+
+    print(f"{line_count} Zeilen (Karten) insgesamt verarbeitet.")
 
     if not nonfoil and not foil:
         raise RuntimeError(
-            "0 Preise gefunden, obwohl der Download technisch erfolgreich war (Status 200, Content-Type JSON). "
-            "Moegliche Ursache: Datenformat der Scryfall-Datei weicht vom erwarteten Format ab, oder alle "
-            "Karten wurden durch die Filter (RARITIES, Sprache, 'paper') ausgeschlossen."
+            f"0 Preise gefunden bei {line_count} verarbeiteten Zeilen. "
+            "Moegliche Ursache: Filter (RARITIES, Sprache, 'paper') zu streng, "
+            "oder Datenstruktur hat sich erneut geaendert."
         )
 
     return {"nonfoil": nonfoil, "foil": foil}
