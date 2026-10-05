@@ -3,15 +3,9 @@
 Laedt die aktuellen MTG-Kartenpreise (USD, i.d.R. TCGplayer-basiert) von Scryfall,
 vergleicht sie mit dem gestrigen Snapshot und schreibt die groessten Preis-Spikes
 nach site/data.json (fuer die Webseite). Non-Foil und Foil werden getrennt ausgewertet.
+Zusaetzlich wird der Cardmarket-EUR-Preisverlauf fuer denselben Zeitraum mitgeliefert.
 
 Scryfall liefert die Bulk-Daten als gzip-komprimierte JSONL-Datei (eine Karte pro Zeile).
-
-Ablauf:
-1. data/latest.json (falls vorhanden) -> data/previous.json (Rotation)
-2. Scryfall "default_cards" Bulk-Datei herunterladen & streamen (gzip + JSONL)
-3. Neue Preise als data/latest.json speichern (getrennt nach nonfoil/foil)
-4. previous vs. latest vergleichen -> Top-Spikes je Finish -> site/data.json
-5. Zusaetzlich: taeglicher History-Snapshot (data/history/) fuer den 7-Tage-Trend
 """
 
 import gzip
@@ -34,9 +28,9 @@ OUTPUT_PATH = os.path.join(SITE_DIR, "data.json")
 
 MIN_PRICE_AFTER_SPIKE = 3.0
 MIN_PCT_CHANGE = 20.0
-MIN_PCT_CHANGE_7D = 35.0  # Schwelle fuer den 7-Tage-Trendvergleich
-MIN_7D_BASELINE_AGE_DAYS = 5  # erst ab diesem Alter zaehlt ein Snapshot als "7-Tage"-Basis
-HISTORY_RETENTION_DAYS = 8  # aeltere History-Snapshots werden geloescht
+MIN_PCT_CHANGE_7D = 35.0
+MIN_7D_BASELINE_AGE_DAYS = 5
+HISTORY_RETENTION_DAYS = 8
 TOP_N = 50
 RARITIES = {"rare", "mythic"}
 
@@ -104,17 +98,32 @@ def download_and_extract_prices(url):
                     "cardmarket_url": purchase_uris.get("cardmarket", ""),
                 }
 
+                eur = prices.get("eur")
+                eur_foil = prices.get("eur_foil")
+
                 usd = prices.get("usd")
                 if usd:
                     try:
-                        nonfoil[card_id] = {**base_info, "price": float(usd)}
+                        eur_price = None
+                        if eur:
+                            try:
+                                eur_price = float(eur)
+                            except (TypeError, ValueError):
+                                eur_price = None
+                        nonfoil[card_id] = {**base_info, "price": float(usd), "eur_price": eur_price}
                     except (TypeError, ValueError):
                         pass
 
                 usd_foil = prices.get("usd_foil")
                 if usd_foil:
                     try:
-                        foil[card_id] = {**base_info, "price": float(usd_foil)}
+                        eur_price_f = None
+                        if eur_foil:
+                            try:
+                                eur_price_f = float(eur_foil)
+                            except (TypeError, ValueError):
+                                eur_price_f = None
+                        foil[card_id] = {**base_info, "price": float(usd_foil), "eur_price": eur_price_f}
                     except (TypeError, ValueError):
                         pass
 
@@ -153,13 +162,21 @@ def _extract_price(entry):
     return entry
 
 
+def _extract_eur_price(entry):
+    """Analog zu _extract_price, aber fuer den Cardmarket-EUR-Preis."""
+    if entry is None or not isinstance(entry, dict):
+        return None
+    return entry.get("eur_price")
+
+
 def compute_spikes_vs_baseline(baseline_prices, current, min_price, min_pct):
     """baseline_prices: {card_id: price_oder_dict}. current: {card_id: {name, set, url, cardmarket_url, price}}."""
     if not baseline_prices:
         return []
     spikes = []
     for card_id, cur in current.items():
-        baseline_price = _extract_price(baseline_prices.get(card_id))
+        baseline_entry = baseline_prices.get(card_id)
+        baseline_price = _extract_price(baseline_entry)
         if baseline_price is None:
             continue
         cur_price = cur["price"]
@@ -170,6 +187,13 @@ def compute_spikes_vs_baseline(baseline_prices, current, min_price, min_pct):
         pct_change = ((cur_price - baseline_price) / baseline_price) * 100
         if pct_change < min_pct:
             continue
+
+        eur_yesterday = _extract_eur_price(baseline_entry)
+        eur_today = cur.get("eur_price")
+        eur_change_pct = None
+        if eur_yesterday is not None and eur_today is not None and eur_yesterday > 0:
+            eur_change_pct = round(((eur_today - eur_yesterday) / eur_yesterday) * 100, 1)
+
         spikes.append({
             "id": cur["id"],
             "name": cur["name"],
@@ -180,14 +204,20 @@ def compute_spikes_vs_baseline(baseline_prices, current, min_price, min_pct):
             "price_today": round(cur_price, 2),
             "change_pct": round(pct_change, 1),
             "change_abs": round(cur_price - baseline_price, 2),
+            "eur_price_yesterday": round(eur_yesterday, 2) if eur_yesterday is not None else None,
+            "eur_price_today": round(eur_today, 2) if eur_today is not None else None,
+            "eur_change_pct": eur_change_pct,
         })
     spikes.sort(key=lambda x: x["change_pct"], reverse=True)
     return spikes[:TOP_N]
 
 
 def compact_prices(full_dict):
-    """Nur {id: price}, fuer platzsparende History-Snapshots."""
-    return {card_id: info["price"] for card_id, info in full_dict.items()}
+    """Nur {id: {price, eur_price}}, fuer platzsparende History-Snapshots."""
+    return {
+        card_id: {"price": info["price"], "eur_price": info.get("eur_price")}
+        for card_id, info in full_dict.items()
+    }
 
 
 def save_history_snapshot(current, today_date):
@@ -217,7 +247,7 @@ def load_7d_baseline(today_date):
             candidates.append((file_date, filename))
     if not candidates:
         return None, None
-    candidates.sort()  # aeltestes zuerst
+    candidates.sort()
     oldest_date, oldest_filename = candidates[0]
     data = load_json(os.path.join(HISTORY_DIR, oldest_filename))
     return data, oldest_date
@@ -260,7 +290,6 @@ def main():
     spikes_nonfoil = compute_spikes_vs_baseline(prev_nonfoil, current["nonfoil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE)
     spikes_foil = compute_spikes_vs_baseline(prev_foil, current["foil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE)
 
-    # 7-Tage-Trend
     today_date = datetime.now(timezone.utc).date()
     save_history_snapshot(current, today_date)
     baseline_7d, baseline_7d_date = load_7d_baseline(today_date)
