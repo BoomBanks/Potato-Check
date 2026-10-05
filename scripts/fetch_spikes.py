@@ -143,13 +143,23 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False)
 
 
+def _extract_price(entry):
+    """baseline-Eintrag ist entweder eine reine Zahl (History-Snapshot) oder ein
+    voller Dict mit 'price' (previous.json, altes Format)."""
+    if entry is None:
+        return None
+    if isinstance(entry, dict):
+        return entry.get("price")
+    return entry
+
+
 def compute_spikes_vs_baseline(baseline_prices, current, min_price, min_pct):
-    """baseline_prices: {card_id: price}. current: {card_id: {name, set, url, cardmarket_url, price}}."""
+    """baseline_prices: {card_id: price_oder_dict}. current: {card_id: {name, set, url, cardmarket_url, price}}."""
     if not baseline_prices:
         return []
     spikes = []
     for card_id, cur in current.items():
-        baseline_price = baseline_prices.get(card_id)
+        baseline_price = _extract_price(baseline_prices.get(card_id))
         if baseline_price is None:
             continue
         cur_price = cur["price"]
