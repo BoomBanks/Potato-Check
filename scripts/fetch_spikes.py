@@ -11,6 +11,7 @@ Ablauf:
 2. Scryfall "default_cards" Bulk-Datei herunterladen & streamen (gzip + JSONL)
 3. Neue Preise als data/latest.json speichern (getrennt nach nonfoil/foil)
 4. previous vs. latest vergleichen -> Top-Spikes je Finish -> site/data.json
+5. Zusaetzlich: taeglicher History-Snapshot (data/history/) fuer den 7-Tage-Trend
 """
 
 import gzip
@@ -19,12 +20,13 @@ import json
 import os
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import requests
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
+HISTORY_DIR = os.path.join(DATA_DIR, "history")
 SITE_DIR = os.path.join(ROOT, "site")
 LATEST_PATH = os.path.join(DATA_DIR, "latest.json")
 PREVIOUS_PATH = os.path.join(DATA_DIR, "previous.json")
@@ -32,6 +34,9 @@ OUTPUT_PATH = os.path.join(SITE_DIR, "data.json")
 
 MIN_PRICE_AFTER_SPIKE = 3.0
 MIN_PCT_CHANGE = 20.0
+MIN_PCT_CHANGE_7D = 35.0  # Schwelle fuer den 7-Tage-Trendvergleich
+MIN_7D_BASELINE_AGE_DAYS = 5  # erst ab diesem Alter zaehlt ein Snapshot als "7-Tage"-Basis
+HISTORY_RETENTION_DAYS = 8  # aeltere History-Snapshots werden geloescht
 TOP_N = 50
 RARITIES = {"rare", "mythic"}
 
@@ -138,22 +143,22 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False)
 
 
-def compute_spikes(previous, current):
-    if not previous:
+def compute_spikes_vs_baseline(baseline_prices, current, min_price, min_pct):
+    """baseline_prices: {card_id: price}. current: {card_id: {name, set, url, cardmarket_url, price}}."""
+    if not baseline_prices:
         return []
     spikes = []
     for card_id, cur in current.items():
-        prev = previous.get(card_id)
-        if not prev:
+        baseline_price = baseline_prices.get(card_id)
+        if baseline_price is None:
             continue
-        prev_price = prev["price"]
         cur_price = cur["price"]
-        if cur_price < MIN_PRICE_AFTER_SPIKE:
+        if cur_price < min_price:
             continue
-        if prev_price <= 0:
+        if baseline_price <= 0:
             continue
-        pct_change = ((cur_price - prev_price) / prev_price) * 100
-        if pct_change < MIN_PCT_CHANGE:
+        pct_change = ((cur_price - baseline_price) / baseline_price) * 100
+        if pct_change < min_pct:
             continue
         spikes.append({
             "id": cur["id"],
@@ -161,13 +166,66 @@ def compute_spikes(previous, current):
             "set": cur["set"],
             "url": cur["url"],
             "cardmarket_url": cur.get("cardmarket_url", ""),
-            "price_yesterday": round(prev_price, 2),
+            "price_yesterday": round(baseline_price, 2),
             "price_today": round(cur_price, 2),
             "change_pct": round(pct_change, 1),
-            "change_abs": round(cur_price - prev_price, 2),
+            "change_abs": round(cur_price - baseline_price, 2),
         })
     spikes.sort(key=lambda x: x["change_pct"], reverse=True)
     return spikes[:TOP_N]
+
+
+def compact_prices(full_dict):
+    """Nur {id: price}, fuer platzsparende History-Snapshots."""
+    return {card_id: info["price"] for card_id, info in full_dict.items()}
+
+
+def save_history_snapshot(current, today_date):
+    os.makedirs(HISTORY_DIR, exist_ok=True)
+    path = os.path.join(HISTORY_DIR, f"{today_date.isoformat()}.json")
+    save_json(path, {
+        "nonfoil": compact_prices(current["nonfoil"]),
+        "foil": compact_prices(current["foil"]),
+    })
+
+
+def load_7d_baseline(today_date):
+    """Sucht den aeltesten verfuegbaren History-Snapshot, der alt genug fuer den 7-Tage-Vergleich ist."""
+    if not os.path.isdir(HISTORY_DIR):
+        return None, None
+    candidates = []
+    for filename in os.listdir(HISTORY_DIR):
+        if not filename.endswith(".json"):
+            continue
+        date_str = filename[:-5]
+        try:
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        age_days = (today_date - file_date).days
+        if age_days >= MIN_7D_BASELINE_AGE_DAYS:
+            candidates.append((file_date, filename))
+    if not candidates:
+        return None, None
+    candidates.sort()  # aeltestes zuerst
+    oldest_date, oldest_filename = candidates[0]
+    data = load_json(os.path.join(HISTORY_DIR, oldest_filename))
+    return data, oldest_date
+
+
+def prune_old_history(today_date):
+    if not os.path.isdir(HISTORY_DIR):
+        return
+    for filename in os.listdir(HISTORY_DIR):
+        if not filename.endswith(".json"):
+            continue
+        date_str = filename[:-5]
+        try:
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if (today_date - file_date).days > HISTORY_RETENTION_DAYS:
+            os.remove(os.path.join(HISTORY_DIR, filename))
 
 
 def main():
@@ -189,8 +247,24 @@ def main():
     prev_nonfoil = (previous or {}).get("nonfoil")
     prev_foil = (previous or {}).get("foil")
 
-    spikes_nonfoil = compute_spikes(prev_nonfoil, current["nonfoil"])
-    spikes_foil = compute_spikes(prev_foil, current["foil"])
+    spikes_nonfoil = compute_spikes_vs_baseline(prev_nonfoil, current["nonfoil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE)
+    spikes_foil = compute_spikes_vs_baseline(prev_foil, current["foil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE)
+
+    # 7-Tage-Trend
+    today_date = datetime.now(timezone.utc).date()
+    save_history_snapshot(current, today_date)
+    baseline_7d, baseline_7d_date = load_7d_baseline(today_date)
+    prune_old_history(today_date)
+
+    if baseline_7d:
+        spikes_nonfoil_7d = compute_spikes_vs_baseline(
+            baseline_7d.get("nonfoil"), current["nonfoil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE_7D
+        )
+        spikes_foil_7d = compute_spikes_vs_baseline(
+            baseline_7d.get("foil"), current["foil"], MIN_PRICE_AFTER_SPIKE, MIN_PCT_CHANGE_7D
+        )
+    else:
+        spikes_nonfoil_7d, spikes_foil_7d = [], []
 
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -199,9 +273,14 @@ def main():
         "card_count_foil": len(current["foil"]),
         "spikes_nonfoil": spikes_nonfoil,
         "spikes_foil": spikes_foil,
+        "has_7d_comparison": baseline_7d is not None,
+        "baseline_7d_date": baseline_7d_date.isoformat() if baseline_7d_date else None,
+        "spikes_nonfoil_7d": spikes_nonfoil_7d,
+        "spikes_foil_7d": spikes_foil_7d,
     }
     save_json(OUTPUT_PATH, result)
-    print(f"{len(spikes_nonfoil)} Non-Foil- / {len(spikes_foil)} Foil-Spikes gefunden, geschrieben nach {OUTPUT_PATH}")
+    print(f"{len(spikes_nonfoil)} Non-Foil- / {len(spikes_foil)} Foil-Spikes (24h) gefunden.")
+    print(f"{len(spikes_nonfoil_7d)} Non-Foil- / {len(spikes_foil_7d)} Foil-Spikes (7 Tage) gefunden, geschrieben nach {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
