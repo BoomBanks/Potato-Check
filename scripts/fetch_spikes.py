@@ -90,10 +90,13 @@ def download_and_extract_prices(url):
 
                 prices = card.get("prices") or {}
                 card_id = card["id"]
+                purchase_uris = card.get("purchase_uris") or {}
                 base_info = {
+                    "id": card_id,
                     "name": card.get("name", "?"),
                     "set": (card.get("set") or "").upper(),
                     "url": card.get("scryfall_uri", ""),
+                    "cardmarket_url": purchase_uris.get("cardmarket", ""),
                 }
 
                 usd = prices.get("usd")
@@ -153,9 +156,11 @@ def compute_spikes(previous, current):
         if pct_change < MIN_PCT_CHANGE:
             continue
         spikes.append({
+            "id": cur["id"],
             "name": cur["name"],
             "set": cur["set"],
             "url": cur["url"],
+            "cardmarket_url": cur.get("cardmarket_url", ""),
             "price_yesterday": round(prev_price, 2),
             "price_today": round(cur_price, 2),
             "change_pct": round(pct_change, 1),
