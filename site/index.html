@@ -37,6 +37,11 @@ main{padding:12px 16px}
 a.btn{padding:9px 14px;border:1px solid var(--line);border-radius:10px;color:var(--text);text-decoration:none;font-size:.95rem}
 .star{margin-left:auto;background:none;border:0;font-size:1.8rem;color:var(--muted);padding:0 6px;line-height:1}
 .star.on{color:#f5b301}
+.why{margin-top:10px}
+.why summary{cursor:pointer;color:var(--accent);font-size:.95rem;font-weight:600;padding:4px 0}
+.why .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.why a{padding:8px 12px;border:1px solid var(--line);border-radius:10px;color:var(--text);text-decoration:none;font-size:.9rem}
+.why .hint{margin-top:6px;font-size:.8rem;color:var(--muted)}
 .empty{color:var(--muted);text-align:center;padding:40px 12px;line-height:1.5}
 .small{font-size:.85rem;color:var(--muted)}
 </style>
@@ -119,7 +124,7 @@ function toggleWatch(s, foil){
 }
 
 function usd(v){ return v === null || v === undefined ? "-" : "$" + Number(v).toFixed(2); }
-function eur(v){ return v === null || v === undefined ? "-" : "\u20ac" + Number(v).toFixed(2).replace(".", ","); }
+function eur(v){ return v === null || v === undefined ? "-" : "€" + Number(v).toFixed(2).replace(".", ","); }
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function pctTxt(p){ return (p >= 0 ? "+" : "") + p.toFixed(1).replace(".", ",") + "%"; }
 function fmtDate(iso){
@@ -135,7 +140,7 @@ function eurTrendHtml(today, pct){
   }
   var pctPart = "";
   if (pct !== null && pct !== undefined) {
-    pctPart = ' <span class="p ' + (pct >= 0 ? "up" : "down") + '">' + (pct >= 0 ? "\u25b2 " : "\u25bc ") + pctTxt(pct) + '</span>';
+    pctPart = ' <span class="p ' + (pct >= 0 ? "up" : "down") + '">' + (pct >= 0 ? "▲ " : "▼ ") + pctTxt(pct) + '</span>';
   } else {
     pctPart = ' <span class="small">(Vergleich folgt)</span>';
   }
@@ -145,9 +150,28 @@ function eurTrendHtml(today, pct){
 // Warnung wenn US-Preis viel hoeher als CM-Preis (typisch fuer Daten-Ausreisser)
 function outlierHtml(usdPrice, eurPrice){
   if (eurPrice && usdPrice && usdPrice / eurPrice > 2) {
-    return '<div class="warn">\u26a0 US-Preis weicht stark vom Cardmarket-Preis ab - evtl. Ausreisser</div>';
+    return '<div class="warn">⚠ US-Preis weicht stark vom Cardmarket-Preis ab - evtl. Ausreisser</div>';
   }
   return "";
+}
+
+
+// "Warum gefragt?" - Suchlinks zu Artikeln/Infos (Zeitraum: days = 7 oder 30)
+function slugEdhrec(name){
+  return String(name).split("//")[0].toLowerCase().replace(/['\u2019,"]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+function whyHtml(name, days){
+  var front = String(name).split("//")[0].trim();
+  var q = encodeURIComponent('"' + front + '" mtg');
+  var gTime = days >= 30 ? "qdr:m" : "qdr:w";
+  var rTime = days >= 30 ? "month" : "week";
+  var label = days >= 30 ? "30 Tage" : "7 Tage";
+  return '<details class="why"><summary>Warum gefragt?</summary><div class="links">' +
+    '<a target="_blank" rel="noopener" href="https://www.google.com/search?q=' + q + '&tbm=nws&tbs=' + gTime + '">News (' + label + ')</a>' +
+    '<a target="_blank" rel="noopener" href="https://www.reddit.com/search/?q=' + q + '&sort=new&t=' + rTime + '">Reddit (' + label + ')</a>' +
+    '<a target="_blank" rel="noopener" href="https://edhrec.com/cards/' + slugEdhrec(name) + '">EDHREC</a>' +
+    '<a target="_blank" rel="noopener" href="https://www.mtggoldfish.com/q?query_string=' + encodeURIComponent(front) + '">MTGGoldfish</a>' +
+    '</div><div class="hint">Suchlinks: bei seltenen Namen evtl. keine Treffer.</div></details>';
 }
 
 function cardHtml(s, foil){
@@ -156,12 +180,13 @@ function cardHtml(s, foil){
   var sf = s.url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(s.url) + '">Scryfall</a>' : "";
   return '<div class="card">' +
     '<div class="row"><div><div class="name">' + esc(s.name) + '</div><div class="set">' + esc(s.set) + '</div></div>' +
-    '<div><div class="pct">\u25b2 ' + s.change_pct.toFixed(1) + '%</div><div class="abs">+$' + s.change_abs.toFixed(2) + '</div></div></div>' +
-    '<div class="prices">' + usd(s.price_yesterday) + ' \u2192 ' + usd(s.price_today) + '</div>' +
+    '<div><div class="pct">▲ ' + s.change_pct.toFixed(1) + '%</div><div class="abs">+$' + s.change_abs.toFixed(2) + '</div></div></div>' +
+    '<div class="prices">' + usd(s.price_yesterday) + ' → ' + usd(s.price_today) + '</div>' +
     eurTrendHtml(s.eur_price_today, s.eur_change_pct) +
     outlierHtml(s.price_today, s.eur_price_today) +
+    whyHtml(s.name, period === "7d" ? 30 : 7) +
     '<div class="actions">' + sf + cm +
-    '<button class="star' + (on ? " on" : "") + '" data-star="' + esc(s.id) + '" aria-label="Beobachten">' + (on ? "\u2605" : "\u2606") + '</button></div></div>';
+    '<button class="star' + (on ? " on" : "") + '" data-star="' + esc(s.id) + '" aria-label="Beobachten">' + (on ? "★" : "☆") + '</button></div></div>';
 }
 
 function watchCardHtml(w){
@@ -171,9 +196,9 @@ function watchCardHtml(w){
   var head = "", pctBlock = "";
   if (nowUsd !== null && nowUsd !== undefined && w.price_at_mark) {
     var p = (nowUsd - w.price_at_mark) / w.price_at_mark * 100;
-    pctBlock = '<div class="pct ' + (p < 0 ? "neg" : "") + '">' + (p < 0 ? "\u25bc " : "\u25b2 ") + Math.abs(p).toFixed(1) + '%</div><div class="abs">jetzt ' + usd(nowUsd) + '</div>';
+    pctBlock = '<div class="pct ' + (p < 0 ? "neg" : "") + '">' + (p < 0 ? "▼ " : "▲ ") + Math.abs(p).toFixed(1) + '%</div><div class="abs">jetzt ' + usd(nowUsd) + '</div>';
   } else {
-    pctBlock = '<div class="abs">' + (live ? "kein Preis" : "l\u00e4dt ...") + '</div>';
+    pctBlock = '<div class="abs">' + (live ? "kein Preis" : "lädt ...") + '</div>';
   }
   var eurLine = "";
   if (live) {
@@ -181,7 +206,7 @@ function watchCardHtml(w){
     if (w.eur_at_mark && nowEur) ep = (nowEur - w.eur_at_mark) / w.eur_at_mark * 100;
     var base = w.eur_at_mark ? ' <span class="small">(beim Markieren ' + eur(w.eur_at_mark) + ')</span>' : "";
     eurLine = '<div class="cm"><b>Cardmarket jetzt:</b> ' + eur(nowEur) +
-      (ep !== null ? ' <span class="p ' + (ep >= 0 ? "up" : "down") + '">' + (ep >= 0 ? "\u25b2 " : "\u25bc ") + pctTxt(ep) + '</span>' : '') + base + '</div>';
+      (ep !== null ? ' <span class="p ' + (ep >= 0 ? "up" : "down") + '">' + (ep >= 0 ? "▲ " : "▼ ") + pctTxt(ep) + '</span>' : '') + base + '</div>';
   }
   var cm = w.cardmarket_url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(w.cardmarket_url) + '">Cardmarket</a>' : "";
   var sf = w.url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(w.url) + '">Scryfall</a>' : "";
@@ -191,8 +216,9 @@ function watchCardHtml(w){
     '<div class="small" style="margin-top:2px">Beobachtet seit ' + esc(fmtDate(w.marked_at)) + '</div>' +
     eurLine +
     (live ? outlierHtml(nowUsd, nowEur) : "") +
+    whyHtml(w.name, 30) +
     '<div class="actions">' + sf + cm +
-    '<button class="star on" data-unstar="' + esc(w.id) + '" data-foil="' + (w.foil ? "1" : "0") + '" aria-label="Nicht mehr beobachten">\u2605</button></div></div>';
+    '<button class="star on" data-unstar="' + esc(w.id) + '" data-foil="' + (w.foil ? "1" : "0") + '" aria-label="Nicht mehr beobachten">★</button></div></div>';
 }
 
 function fetchLive(w){
@@ -237,13 +263,13 @@ function render(){
     list = foil ? DATA.spikes_foil_7d : DATA.spikes_nonfoil_7d;
   } else {
     if (!DATA.compared_to_previous_run) {
-      el.innerHTML = '<div class="empty">Noch kein Vergleichstag vorhanden.<br>Ab dem n\u00e4chsten Lauf erscheinen hier Spikes.</div>';
+      el.innerHTML = '<div class="empty">Noch kein Vergleichstag vorhanden.<br>Ab dem nächsten Lauf erscheinen hier Spikes.</div>';
       return;
     }
     list = foil ? DATA.spikes_foil : DATA.spikes_nonfoil;
   }
   if (!list || !list.length) {
-    el.innerHTML = '<div class="empty">Aktuell keine Spikes, die die Filter erf\u00fcllen.</div>';
+    el.innerHTML = '<div class="empty">Aktuell keine Spikes, die die Filter erfüllen.</div>';
     return;
   }
   el.innerHTML = list.map(function(s){ return cardHtml(s, foil); }).join("");
@@ -284,7 +310,7 @@ fetch("./data.json?t=" + Date.now(), { cache: "no-store" })
     var dt = new Date(d.generated_at);
     var total = (d.card_count_nonfoil || 0) + (d.card_count_foil || 0);
     document.getElementById("stand").textContent =
-      "Stand: " + dt.toLocaleString("de-AT") + " - " + total + " Preise gepr\u00fcft";
+      "Stand: " + dt.toLocaleString("de-AT") + " - " + total + " Preise geprüft";
     render();
   })
   .catch(function(){
