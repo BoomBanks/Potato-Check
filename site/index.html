@@ -1,302 +1,295 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MTG Preis-Spikes (USA)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magic Preis-Spikes</title>
 <style>
-  :root{
-    --bg:#0f1115; --card:#1a1d24; --text:#eef0f3; --muted:#9aa1ac;
-    --up:#3ddc84; --down:#ff5c5c; --border:#2a2e37; --accent:#5b8cff; --star:#f5c518;
-  }
-  @media (prefers-color-scheme: light){
-    :root:not([data-theme="dark"]){
-      --bg:#f6f7f9; --card:#ffffff; --text:#1c1f26; --muted:#6b7280;
-      --up:#1a9850; --down:#d6334c; --border:#e5e7eb; --accent:#2f5fdb; --star:#b8860b;
-    }
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    padding-top:env(safe-area-inset-top,0px);
-    padding-bottom:env(safe-area-inset-bottom,0px);
-  }
-  header{
-    padding:20px 16px 0; position:sticky; top:0;
-    padding-top:calc(16px + env(safe-area-inset-top,0px));
-    background:var(--bg); border-bottom:1px solid var(--border); z-index:10;
-  }
-  h1{font-size:1.3rem; margin:0 0 4px}
-  #meta{color:var(--muted); font-size:0.85rem; margin-bottom:12px}
-  .tabs{display:flex; gap:4px}
-  .tab{
-    flex:1; text-align:center; padding:10px; cursor:pointer;
-    color:var(--muted); font-weight:600; font-size:0.85rem;
-    border-bottom:2px solid transparent;
-  }
-  .tab.active{color:var(--accent); border-bottom-color:var(--accent)}
-  .period-row{display:flex; gap:8px; padding:10px 0 2px}
-  .period-btn{
-    padding:6px 14px; border-radius:999px; border:1px solid var(--border);
-    background:transparent; color:var(--muted); font-size:0.8rem; cursor:pointer;
-  }
-  .period-btn.active{background:var(--accent); border-color:var(--accent); color:#fff}
-  main{padding:12px 16px 40px; max-width:680px; margin:0 auto}
-  .card{
-    background:var(--card); border:1px solid var(--border); border-radius:12px;
-    padding:14px; margin-bottom:10px;
-  }
-  .card-top{display:flex; justify-content:space-between; gap:10px}
-  .name{font-weight:600; font-size:1rem}
-  .set{color:var(--muted); font-size:0.8rem; margin-top:2px}
-  .prices{color:var(--muted); font-size:0.85rem; margin-top:6px}
-  .change{text-align:right; white-space:nowrap; font-weight:700; font-size:1.1rem}
-  .change.up{color:var(--up)}
-  .change.down{color:var(--down)}
-  .abs{font-size:0.8rem; font-weight:400; color:var(--muted)}
-  .card-actions{display:flex; align-items:center; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border)}
-  .link-btn{
-    font-size:0.8rem; padding:6px 10px; border-radius:8px; border:1px solid var(--border);
-    color:var(--text); text-decoration:none; background:transparent;
-  }
-  .star-btn{
-    margin-left:auto; background:none; border:none; font-size:1.3rem; cursor:pointer;
-    color:var(--muted); line-height:1; padding:4px;
-  }
-  .star-btn.active{color:var(--star)}
-  #empty{color:var(--muted); text-align:center; padding:40px 16px}
-  .watch-date{color:var(--muted); font-size:0.75rem; margin-top:4px}
+:root{--bg:#f6f7f9;--card:#fff;--text:#14171c;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--up:#0f9d58;--down:#d93025;--warn:#b45309;--warnbg:#fef3c7}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1016;--card:#1a1e27;--text:#f1f3f6;--muted:#9aa3b2;--line:#2b303b;--accent:#5b8def;--up:#34d27b;--down:#ff6b6b;--warn:#fbbf24;--warnbg:#3a2e10}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding-bottom:40px}
+header{padding:16px 16px 4px}
+h1{margin:0 0 4px;font-size:1.5rem}
+.sub{color:var(--muted);font-size:.9rem}
+.tabs{display:flex;border-bottom:1px solid var(--line);margin-top:12px}
+.tab{flex:1;padding:12px 4px;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);font-size:1rem;font-weight:600}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.periods{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.pill{padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);font-size:.95rem}
+.pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+main{padding:12px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;gap:12px}
+.name{font-weight:700;font-size:1.05rem}
+.set{color:var(--muted);font-size:.9rem;margin-top:2px}
+.pct{text-align:right;font-weight:700;font-size:1.25rem;color:var(--up);white-space:nowrap}
+.pct.neg{color:var(--down)}
+.abs{text-align:right;color:var(--muted);font-size:.95rem}
+.prices{color:var(--muted);margin-top:8px}
+.cm{margin-top:6px;font-size:.95rem}
+.cm b{font-weight:700}
+.cm .p{font-weight:700}
+.cm .p.up{color:var(--up)}
+.cm .p.down{color:var(--down)}
+.warn{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:8px;background:var(--warnbg);color:var(--warn);font-size:.85rem}
+.actions{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+a.btn{padding:9px 14px;border:1px solid var(--line);border-radius:10px;color:var(--text);text-decoration:none;font-size:.95rem}
+.star{margin-left:auto;background:none;border:0;font-size:1.8rem;color:var(--muted);padding:0 6px;line-height:1}
+.star.on{color:#f5b301}
+.empty{color:var(--muted);text-align:center;padding:40px 12px;line-height:1.5}
+.small{font-size:.85rem;color:var(--muted)}
 </style>
 </head>
 <body>
 <header>
   <h1>Magic Preis-Spikes (USA)</h1>
-  <div id="meta">Lade...</div>
-  <div class="tabs">
-    <div class="tab active" data-finish="nonfoil">Non-Foil</div>
-    <div class="tab" data-finish="foil">Foil</div>
-    <div class="tab" data-finish="watched">Beobachtet</div>
-  </div>
-  <div class="period-row" id="periodRow">
-    <button class="period-btn active" data-period="24h">24 Stunden</button>
-    <button class="period-btn" data-period="7d">7 Tage</button>
-  </div>
+  <div class="sub" id="stand">Lade ...</div>
 </header>
+<div class="tabs">
+  <button class="tab active" data-tab="nonfoil">Non-Foil</button>
+  <button class="tab" data-tab="foil">Foil</button>
+  <button class="tab" data-tab="watch">Beobachtet</button>
+</div>
+<div class="periods" id="periods">
+  <button class="pill active" data-period="24h">24 Stunden</button>
+  <button class="pill" data-period="7d">7 Tage</button>
+</div>
 <main id="list"></main>
 
 <script>
-const WATCHLIST_KEY = 'mtg-spike-watchlist';
-let DATA = null;
-let currentFinish = 'nonfoil';
-let currentPeriod = '24h';
+var WL_KEY = "mtg-spike-watchlist";
+var DATA = null;
+var tab = "nonfoil";
+var period = "24h";
+var liveCache = {};
 
-function getWatchlist(){
-  try{ return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
-  catch(e){ return []; }
+function safeGet(){try{return localStorage.getItem(WL_KEY)}catch(e){return null}}
+function safeSet(v){try{localStorage.setItem(WL_KEY,v)}catch(e){}}
+
+function loadWatch(){
+  var raw = safeGet(), arr = [];
+  try { arr = JSON.parse(raw || "[]"); } catch(e) { arr = []; }
+  if (!Array.isArray(arr)) {
+    // Falls frueher als Objekt {key: eintrag} gespeichert
+    arr = Object.keys(arr || {}).map(function(k){ var e = arr[k]; if (e && !e.key) e.key = k; return e; });
+  }
+  return arr.filter(Boolean).map(normWatch);
 }
-function saveWatchlist(list){
-  try{ localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list)); }
-  catch(e){ /* ignore */ }
+function first(o, keys){
+  for (var i=0;i<keys.length;i++){ if (o[keys[i]] !== undefined && o[keys[i]] !== null) return o[keys[i]]; }
+  return null;
 }
-function isWatched(id, finish){
-  return getWatchlist().some(w => w.id === id && w.finish === finish);
+function normWatch(e){
+  var foil = !!first(e, ["foil","isFoil","is_foil"]);
+  var id = first(e, ["id","card_id","cardId"]);
+  return {
+    id: id,
+    foil: foil,
+    name: e.name || "?",
+    set: e.set || "",
+    url: e.url || null,
+    cardmarket_url: e.cardmarket_url || e.cardmarketUrl || null,
+    price_at_mark: first(e, ["price_at_mark","priceAtMark","mark_price","markPrice","start_price","startPrice","price"]),
+    eur_at_mark: first(e, ["eur_at_mark","eurAtMark"]),
+    marked_at: first(e, ["marked_at","markedAt","date","added","addedAt"])
+  };
 }
-function toggleWatch(spike, finish){
-  let list = getWatchlist();
-  const idx = list.findIndex(w => w.id === spike.id && w.finish === finish);
-  if(idx >= 0){
-    list.splice(idx, 1);
-  }else{
+function saveWatch(list){ safeSet(JSON.stringify(list)); }
+function wKey(id, foil){ return id + (foil ? "|f" : "|n"); }
+function isWatched(id, foil){
+  return loadWatch().some(function(w){ return w.id === id && w.foil === foil; });
+}
+function toggleWatch(s, foil){
+  var list = loadWatch();
+  var idx = -1;
+  for (var i=0;i<list.length;i++){ if (list[i].id === s.id && list[i].foil === foil) idx = i; }
+  if (idx >= 0) { list.splice(idx,1); }
+  else {
     list.push({
-      id: spike.id, finish: finish, name: spike.name, set: spike.set,
-      url: spike.url, cardmarket_url: spike.cardmarket_url,
-      price_when_marked: spike.price_today, marked_at: new Date().toISOString()
+      id: s.id, foil: foil, name: s.name, set: s.set, url: s.url,
+      cardmarket_url: s.cardmarket_url,
+      price_at_mark: s.price_today,
+      eur_at_mark: (s.eur_price_today !== undefined ? s.eur_price_today : null),
+      marked_at: new Date().toISOString()
     });
   }
-  saveWatchlist(list);
+  saveWatch(list);
   render();
 }
 
-function linksHtml(url, cardmarket_url){
-  let html = '';
-  if(url) html += `<a class="link-btn" href="${url}" target="_blank" rel="noopener">Scryfall</a>`;
-  if(cardmarket_url) html += `<a class="link-btn" href="${cardmarket_url}" target="_blank" rel="noopener">Cardmarket</a>`;
-  return html;
+function usd(v){ return v === null || v === undefined ? "-" : "$" + Number(v).toFixed(2); }
+function eur(v){ return v === null || v === undefined ? "-" : "\u20ac" + Number(v).toFixed(2).replace(".", ","); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function pctTxt(p){ return (p >= 0 ? "+" : "") + p.toFixed(1).replace(".", ",") + "%"; }
+function fmtDate(iso){
+  if (!iso) return "";
+  var d = new Date(iso); if (isNaN(d)) return String(iso);
+  return d.getDate() + "." + (d.getMonth()+1) + "." + d.getFullYear();
 }
 
-function spikeCardHtml(s, finish){
-  const dir = s.change_pct >= 0 ? 'up' : 'down';
-  const arrow = s.change_pct >= 0 ? '&#9650;' : '&#9660;';
-  const watched = isWatched(s.id, finish);
-  return `<div class="card">
-    <div class="card-top">
-      <div>
-        <div class="name">${s.name}</div>
-        <div class="set">${s.set}</div>
-        <div class="prices">$${s.price_yesterday.toFixed(2)} &rarr; $${s.price_today.toFixed(2)}</div>
-      </div>
-      <div class="change ${dir}">${arrow} ${Math.abs(s.change_pct).toFixed(1)}%
-        <div class="abs">${s.change_abs >= 0 ? '+' : ''}$${s.change_abs.toFixed(2)}</div>
-      </div>
-    </div>
-    <div class="card-actions">
-      ${linksHtml(s.url, s.cardmarket_url)}
-      <button class="star-btn ${watched ? 'active' : ''}" data-id="${s.id}" data-finish="${finish}" title="Beobachten">${watched ? '&#9733;' : '&#9734;'}</button>
-    </div>
-  </div>`;
-}
-
-async function fetchLivePrice(id, finish){
-  try{
-    const res = await fetch(`https://api.scryfall.com/cards/${id}`);
-    if(!res.ok) return null;
-    const card = await res.json();
-    const p = finish === 'foil' ? card.prices.usd_foil : card.prices.usd;
-    return p ? parseFloat(p) : null;
-  }catch(e){
-    return null;
+// Cardmarket-Zeile: Preis in EUR + Veraenderung in % (wenn Vergleich vorhanden)
+function eurTrendHtml(today, pct){
+  if (today === null || today === undefined) {
+    return '<div class="cm"><b>Cardmarket:</b> <span class="small">kein Preis</span></div>';
   }
+  var pctPart = "";
+  if (pct !== null && pct !== undefined) {
+    pctPart = ' <span class="p ' + (pct >= 0 ? "up" : "down") + '">' + (pct >= 0 ? "\u25b2 " : "\u25bc ") + pctTxt(pct) + '</span>';
+  } else {
+    pctPart = ' <span class="small">(Vergleich folgt)</span>';
+  }
+  return '<div class="cm"><b>Cardmarket:</b> ' + eur(today) + pctPart + '</div>';
 }
 
-async function renderWatched(){
-  const list = document.getElementById('list');
-  const watchlist = getWatchlist();
-  if(!watchlist.length){
-    list.innerHTML = '<div id="empty">Noch keine Karten markiert. Tippe auf den Stern bei einer Karte, um sie hier zu beobachten.</div>';
-    return;
+// Warnung wenn US-Preis viel hoeher als CM-Preis (typisch fuer Daten-Ausreisser)
+function outlierHtml(usdPrice, eurPrice){
+  if (eurPrice && usdPrice && usdPrice / eurPrice > 2) {
+    return '<div class="warn">\u26a0 US-Preis weicht stark vom Cardmarket-Preis ab - evtl. Ausreisser</div>';
   }
-  list.innerHTML = watchlist.map(w => `<div class="card" id="watch-${w.id}-${w.finish}">
-    <div class="card-top">
-      <div>
-        <div class="name">${w.name}</div>
-        <div class="set">${w.set} ${w.finish === 'foil' ? '(Foil)' : ''}</div>
-        <div class="prices">Preis beim Markieren: $${w.price_when_marked.toFixed(2)}</div>
-        <div class="watch-date">Beobachtet seit ${new Date(w.marked_at).toLocaleDateString('de-DE')}</div>
-      </div>
-      <div class="change" id="live-${w.id}-${w.finish}">&hellip;</div>
-    </div>
-    <div class="card-actions">
-      ${linksHtml(w.url, w.cardmarket_url)}
-      <button class="star-btn active" data-id="${w.id}" data-finish="${w.finish}" title="Entmarkieren">&#9733;</button>
-    </div>
-  </div>`).join('');
-
-  attachStarHandlers();
-
-  for(const w of watchlist){
-    const price = await fetchLivePrice(w.id, w.finish);
-    const el = document.getElementById(`live-${w.id}-${w.finish}`);
-    if(!el) continue;
-    if(price === null){
-      el.innerHTML = '<span style="color:var(--muted); font-size:0.85rem">nicht verfügbar</span>';
-      continue;
-    }
-    const diff = price - w.price_when_marked;
-    const pct = w.price_when_marked > 0 ? (diff / w.price_when_marked) * 100 : 0;
-    const dir = diff >= 0 ? 'up' : 'down';
-    const arrow = diff >= 0 ? '&#9650;' : '&#9660;';
-    el.className = `change ${dir}`;
-    el.innerHTML = `${arrow} ${Math.abs(pct).toFixed(1)}%
-      <div class="abs">jetzt $${price.toFixed(2)}</div>`;
-  }
+  return "";
 }
 
-function attachStarHandlers(){
-  document.querySelectorAll('.star-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      const finish = btn.dataset.finish;
-      if(currentFinish === 'watched'){
-        let list = getWatchlist().filter(w => !(w.id === id && w.finish === finish));
-        saveWatchlist(list);
-        render();
-        return;
-      }
-      const spikes = finish === 'foil' ? DATA.spikes_foil : DATA.spikes_nonfoil;
-      const spike = spikes.find(s => s.id === id);
-      if(spike) toggleWatch(spike, finish);
-    });
-  });
+function cardHtml(s, foil){
+  var on = isWatched(s.id, foil);
+  var cm = s.cardmarket_url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(s.cardmarket_url) + '">Cardmarket</a>' : "";
+  var sf = s.url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(s.url) + '">Scryfall</a>' : "";
+  return '<div class="card">' +
+    '<div class="row"><div><div class="name">' + esc(s.name) + '</div><div class="set">' + esc(s.set) + '</div></div>' +
+    '<div><div class="pct">\u25b2 ' + s.change_pct.toFixed(1) + '%</div><div class="abs">+$' + s.change_abs.toFixed(2) + '</div></div></div>' +
+    '<div class="prices">' + usd(s.price_yesterday) + ' \u2192 ' + usd(s.price_today) + '</div>' +
+    eurTrendHtml(s.eur_price_today, s.eur_change_pct) +
+    outlierHtml(s.price_today, s.eur_price_today) +
+    '<div class="actions">' + sf + cm +
+    '<button class="star' + (on ? " on" : "") + '" data-star="' + esc(s.id) + '" aria-label="Beobachten">' + (on ? "\u2605" : "\u2606") + '</button></div></div>';
+}
+
+function watchCardHtml(w){
+  var live = liveCache[wKey(w.id, w.foil)];
+  var nowUsd = live ? live.usd : null;
+  var nowEur = live ? live.eur : null;
+  var head = "", pctBlock = "";
+  if (nowUsd !== null && nowUsd !== undefined && w.price_at_mark) {
+    var p = (nowUsd - w.price_at_mark) / w.price_at_mark * 100;
+    pctBlock = '<div class="pct ' + (p < 0 ? "neg" : "") + '">' + (p < 0 ? "\u25bc " : "\u25b2 ") + Math.abs(p).toFixed(1) + '%</div><div class="abs">jetzt ' + usd(nowUsd) + '</div>';
+  } else {
+    pctBlock = '<div class="abs">' + (live ? "kein Preis" : "l\u00e4dt ...") + '</div>';
+  }
+  var eurLine = "";
+  if (live) {
+    var ep = null;
+    if (w.eur_at_mark && nowEur) ep = (nowEur - w.eur_at_mark) / w.eur_at_mark * 100;
+    var base = w.eur_at_mark ? ' <span class="small">(beim Markieren ' + eur(w.eur_at_mark) + ')</span>' : "";
+    eurLine = '<div class="cm"><b>Cardmarket jetzt:</b> ' + eur(nowEur) +
+      (ep !== null ? ' <span class="p ' + (ep >= 0 ? "up" : "down") + '">' + (ep >= 0 ? "\u25b2 " : "\u25bc ") + pctTxt(ep) + '</span>' : '') + base + '</div>';
+  }
+  var cm = w.cardmarket_url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(w.cardmarket_url) + '">Cardmarket</a>' : "";
+  var sf = w.url ? '<a class="btn" target="_blank" rel="noopener" href="' + esc(w.url) + '">Scryfall</a>' : "";
+  return '<div class="card">' +
+    '<div class="row"><div><div class="name">' + esc(w.name) + '</div><div class="set">' + esc(w.set) + (w.foil ? " (Foil)" : "") + '</div></div><div>' + pctBlock + '</div></div>' +
+    '<div class="prices">Preis beim Markieren: ' + usd(w.price_at_mark) + '</div>' +
+    '<div class="small" style="margin-top:2px">Beobachtet seit ' + esc(fmtDate(w.marked_at)) + '</div>' +
+    eurLine +
+    (live ? outlierHtml(nowUsd, nowEur) : "") +
+    '<div class="actions">' + sf + cm +
+    '<button class="star on" data-unstar="' + esc(w.id) + '" data-foil="' + (w.foil ? "1" : "0") + '" aria-label="Nicht mehr beobachten">\u2605</button></div></div>';
+}
+
+function fetchLive(w){
+  var k = wKey(w.id, w.foil);
+  if (liveCache[k] !== undefined || !w.id) return;
+  liveCache[k] = null;
+  fetch("https://api.scryfall.com/cards/" + encodeURIComponent(w.id))
+    .then(function(r){ return r.json(); })
+    .then(function(c){
+      var p = c.prices || {};
+      var u = w.foil ? p.usd_foil : p.usd;
+      var e = w.foil ? p.eur_foil : p.eur;
+      liveCache[k] = { usd: u ? parseFloat(u) : null, eur: e ? parseFloat(e) : null };
+      if (tab === "watch") render();
+    })
+    .catch(function(){ liveCache[k] = { usd: null, eur: null }; if (tab === "watch") render(); });
 }
 
 function render(){
-  const list = document.getElementById('list');
-  const periodRow = document.getElementById('periodRow');
-  periodRow.style.display = currentFinish === 'watched' ? 'none' : 'flex';
+  var el = document.getElementById("list");
+  document.getElementById("periods").style.display = tab === "watch" ? "none" : "flex";
+  if (!DATA) { el.innerHTML = '<div class="empty">Lade Daten ...</div>'; return; }
 
-  if(currentFinish === 'watched'){
-    renderWatched();
-    return;
-  }
-  if(!DATA){ return; }
-
-  if(currentPeriod === '7d'){
-    if(!DATA.has_7d_comparison){
-      list.innerHTML = '<div id="empty">Noch nicht genug Preis-Historie fuer den 7-Tage-Vergleich. Das baut sich in den ersten Tagen automatisch auf.</div>';
+  if (tab === "watch") {
+    var wl = loadWatch();
+    if (!wl.length) {
+      el.innerHTML = '<div class="empty">Noch keine Karten markiert.<br>Tippe bei einer Karte auf den Stern, um sie zu beobachten.</div>';
       return;
     }
-    const spikes7d = currentFinish === 'foil' ? DATA.spikes_foil_7d : DATA.spikes_nonfoil_7d;
-    if(!spikes7d || !spikes7d.length){
-      list.innerHTML = '<div id="empty">Aktuell keine Karten mit mindestens 35% Anstieg in den letzten 7 Tagen.</div>';
+    wl.forEach(fetchLive);
+    el.innerHTML = wl.map(watchCardHtml).join("");
+    return;
+  }
+
+  var foil = tab === "foil";
+  var list;
+  if (period === "7d") {
+    if (!DATA.has_7d_comparison) {
+      el.innerHTML = '<div class="empty">Der 7-Tage-Vergleich braucht mindestens 5 Tage gespeicherten Verlauf.<br>Er erscheint automatisch, sobald genug Tage vorhanden sind.</div>';
       return;
     }
-    list.innerHTML = spikes7d.map(s => spikeCardHtml(s, currentFinish)).join('');
-    attachStarHandlers();
+    list = foil ? DATA.spikes_foil_7d : DATA.spikes_nonfoil_7d;
+  } else {
+    if (!DATA.compared_to_previous_run) {
+      el.innerHTML = '<div class="empty">Noch kein Vergleichstag vorhanden.<br>Ab dem n\u00e4chsten Lauf erscheinen hier Spikes.</div>';
+      return;
+    }
+    list = foil ? DATA.spikes_foil : DATA.spikes_nonfoil;
+  }
+  if (!list || !list.length) {
+    el.innerHTML = '<div class="empty">Aktuell keine Spikes, die die Filter erf\u00fcllen.</div>';
     return;
   }
-
-  if(!DATA.compared_to_previous_run){
-    list.innerHTML = '<div id="empty">Erster Durchlauf - noch kein Vergleichswert von gestern. Morgen gibt es die ersten Spikes.</div>';
-    return;
-  }
-
-  const spikes = currentFinish === 'foil' ? DATA.spikes_foil : DATA.spikes_nonfoil;
-  if(!spikes || !spikes.length){
-    list.innerHTML = '<div id="empty">Aktuell keine Spikes ueber $3 mit mindestens 20% Anstieg.</div>';
-    return;
-  }
-
-  list.innerHTML = spikes.map(s => spikeCardHtml(s, currentFinish)).join('');
-  attachStarHandlers();
+  el.innerHTML = list.map(function(s){ return cardHtml(s, foil); }).join("");
 }
 
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    currentFinish = tab.dataset.finish;
-    render();
-  });
-});
-
-document.querySelectorAll('.period-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentPeriod = btn.dataset.period;
-    render();
-  });
-});
-
-async function load(){
-  const meta = document.getElementById('meta');
-  try{
-    const res = await fetch('./data.json?_=' + Date.now());
-    if(!res.ok) throw new Error('data.json nicht gefunden');
-    DATA = await res.json();
-
-    const generated = new Date(DATA.generated_at);
-    const count = (DATA.card_count_nonfoil || 0) + (DATA.card_count_foil || 0);
-    meta.textContent = `Stand: ${generated.toLocaleString('de-DE')} - ${count} Preise geprueft`;
-    render();
-  }catch(err){
-    meta.textContent = 'Fehler beim Laden der Daten.';
-    console.error(err);
+document.addEventListener("click", function(ev){
+  var t = ev.target;
+  if (t.classList.contains("tab")) {
+    tab = t.getAttribute("data-tab");
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(b){ b.classList.toggle("active", b === t); });
+    render(); return;
   }
-}
-load();
+  if (t.classList.contains("pill")) {
+    period = t.getAttribute("data-period");
+    Array.prototype.forEach.call(document.querySelectorAll(".pill"), function(b){ b.classList.toggle("active", b === t); });
+    render(); return;
+  }
+  if (t.hasAttribute("data-star")) {
+    var id = t.getAttribute("data-star");
+    var foil = tab === "foil";
+    var src = period === "7d" ? (foil ? DATA.spikes_foil_7d : DATA.spikes_nonfoil_7d) : (foil ? DATA.spikes_foil : DATA.spikes_nonfoil);
+    var s = (src || []).filter(function(x){ return x.id === id; })[0];
+    if (s) toggleWatch(s, foil);
+    return;
+  }
+  if (t.hasAttribute("data-unstar")) {
+    var uid = t.getAttribute("data-unstar");
+    var uf = t.getAttribute("data-foil") === "1";
+    saveWatch(loadWatch().filter(function(w){ return !(w.id === uid && w.foil === uf); }));
+    render();
+  }
+});
+
+fetch("./data.json?t=" + Date.now(), { cache: "no-store" })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    DATA = d;
+    var dt = new Date(d.generated_at);
+    var total = (d.card_count_nonfoil || 0) + (d.card_count_foil || 0);
+    document.getElementById("stand").textContent =
+      "Stand: " + dt.toLocaleString("de-AT") + " - " + total + " Preise gepr\u00fcft";
+    render();
+  })
+  .catch(function(){
+    document.getElementById("stand").textContent = "Daten konnten nicht geladen werden.";
+  });
 </script>
 </body>
 </html>
